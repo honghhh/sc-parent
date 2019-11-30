@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<!-- 配置Run As Maven build : Goals 参数 : mybatis-generator:generate -Dmybatis.generator.overwrite=true -->
+<!-- 配置 tableName,使用 Run As Maven build 生成 dao model 层 -->
+<!-- maven执行命令:mybatis-generator:generate -->
+<generatorConfiguration>
+    <!-- 配置文件路径 -->
+    <properties url="${mybatis.generator.generatorConfig.properties}"/>
+    <!--数据库驱动包路径 -->
+    <classPathEntry location="${drive.class.path}"/>
+
+    <!--
+        上下文配置、核心配置
+        属性介绍
+        defaultModelType:
+            conditional:*这是默认值*,这个模型和下面的hierarchical类似，除了如果那个单独的类将只包含一个字段，将不会生成一个单独的类。
+                 因此,如果一个表的主键只有一个字段,那么不会为该字段生成单独的实体类,会将该字段合并到基本实体类中。
+            flat:该模型为每一张表只生成一个实体类。这个实体类包含表中的所有字段。**这种模型最简单，推荐使用。**
+            hierarchical:如果表有主键,那么该模型会产生一个单独的主键实体类,如果表还有BLOB字段， 则会为表生成一个包含所有BLOB字段的单独的实体类,
+                然后为所有其他的字段生成一个单独的实体类。 MBG会在所有生成的实体类之间维护一个继承关系。
+    -->
+    <context id="DB2Tables" targetRuntime="MyBatis3" defaultModelType="flat">
+        <!-- 自动为表名加上前后缀，防止表名中出现空格发生异常（mysql=`） -->
+        <property name="beginningDelimiter" value="`"/>
+        <property name="endingDelimiter" value="`"/>
+
+        <!--关闭注释 -->
+        <commentGenerator>
+            <!-- 阻止生成注释 -->
+            <property name="suppressAllComments" value="false"/>
+            <!-- 阻止生成注释包含时间戳 -->
+            <property name="suppressDate" value="true"/>
+            <property name="javaFileEncoding" value="UTF-8"/>
+        </commentGenerator>
+
+        <!-- 自定义注释生成类，为以上节点添加type属性 -->
+        <!--<commentGenerator type="com.sanxin.common.utils.mybatis.MyCommentGenerator"/>-->
+
+        <!-- 配置数据库连接 -->
+        <jdbcConnection driverClass="${jdbc.driver}" connectionURL="${jdbc.url}" userId="${jdbc.username}"
+                        password="${jdbc.password}">
+        </jdbcConnection>
+
+        <!-- 生成实体的位置 -->
+        <javaModelGenerator targetPackage="${model.package}" targetProject="${target.project}">
+            <!-- 是否根据catalog和schema来生成子包 -->
+            <property name="enableSubPackages" value="ture"/>
+            <!-- 是否使用构造方法入参 -->
+            <property name="trimStrings" value="true"/>
+            <!-- 是否对字符串进行trim操作 -->
+            <property name="trimStrings" value="false" />
+            <property name="javaFileEncoding" value="UTF-8"/>
+        </javaModelGenerator>
+
+        <!-- 生成 Mapper 接口的位置 -->
+        <sqlMapGenerator targetPackage="${xml.mapper.package}" targetProject="${target.project}">
+            <!-- 是否根据catalog和schema来生成子包 -->
+            <property name="enableSubPackages" value="ture"/>
+            <property name="javaFileEncoding" value="UTF-8"/>
+        </sqlMapGenerator>
+
+        <!--
+            type属性介绍：（仅用于mybatis3）
+            ANNOTATEDMAPPER:基于注解的Mapper接口，不会有对应的XML映射文件
+            MIXEDMAPPER:XML和注解的混合形式，(上面这种情况中的)SqlProvider注解方法会被XML替代。
+            XMLMAPPER:所有的方法都在XML中，接口调用依赖XML文件。
+        -->
+        <!-- 生成 Mapper XML 的位置 -->
+        <javaClientGenerator type="XMLMAPPER" targetPackage="${dao.package}" targetProject="${target.project}">
+            <!-- 是否根据catalog和schema来生成子包 -->
+            <property name="enableSubPackages" value="ture"/>
+            <property name="javaFileEncoding" value="UTF-8"/>
+        </javaClientGenerator>
+
+        <!-- 设置数据库的表名和实体类名 -->
+        <table tableName="datasource" modelType="flat">
+            <!-- 配置主键 -->
+            <generatedKey column="id" sqlStatement="Mysql" identity="true"/>
+        </table>
+    </context>
+</generatorConfiguration>

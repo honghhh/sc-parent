@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/tx
+		http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/aop
+		http://www.springframework.org/schema/aop/spring-aop.xsd
+		http://www.springframework.org/schema/cache
+        http://www.springframework.org/schema/cache/spring-cache-3.2.xsd"
+       default-lazy-init="false">
+
+    <context:component-scan base-package="com.sanxin.api.service" />
+    <context:component-scan base-package="com.sanxin.common.exception" />
+    <context:component-scan base-package="com.sanxin.common.config" />
+
+    <bean id="stat-filter" class="com.alibaba.druid.filter.stat.StatFilter">
+        <!-- 超过3秒为慢查询 -->
+        <property name="slowSqlMillis" value="3000" />
+        <!-- sql打印 -->
+        <property name="logSlowSql" value="false" />
+    </bean>
+
+    <!-- 配置数据源和连接池 -->
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close">
+        <property name="url" value="${jdbc.url}" />
+        <property name="username" value="${jdbc.user}" />
+        <property name="password" value="${jdbc.password}" />
+        <!--连接池初始化配置 -->
+        <property name="initialSize" value="1" />
+        <property name="minIdle" value="1" />
+        <property name="maxActive" value="20" />
+        <property name="maxWait" value="60000" />
+        <!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 -->
+        <property name="timeBetweenEvictionRunsMillis" value="60000" />
+        <!-- 配置一个连接在池中最小生存的时间，单位是毫秒 -->
+        <property name="minEvictableIdleTimeMillis" value="300000" />
+        <property name="validationQuery" value="select  GETDATE()" />
+        <property name="testWhileIdle" value="true" />
+        <property name="testOnBorrow" value="false" />
+        <property name="testOnReturn" value="false" />
+        <!-- 打开PSCache，并且指定每个连接上PSCache的大小 -->
+        <property name="poolPreparedStatements" value="true" />
+        <property name="maxPoolPreparedStatementPerConnectionSize"
+                  value="20" />
+        <!-- 配置监控统计拦截的filters -->
+        <property name="filters" value="stat" />
+    </bean>
+
+    <!-- 管理动态数据源的数据源（这句话的理解可以看下AbstractRoutingDataSource类的内容） -->
+    <bean id="druidDynamicDataSource" class="com.sanxin.common.utils.datasource.DruidDynamicDataSource">
+        <property name="defaultTargetDataSource" ref="dataSource" />
+        <property name="targetDataSources">
+            <map>
+                <entry key="defaultDataSource" value-ref="dataSource"/>
+                <!-- 这里还可以加多个dataSource -->
+            </map>
+        </property>
+    </bean>
+
+    <!-- 配置SessionFactory初始化配置并解析xml -->
+    <bean id="SessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 配置数据源 -->
+        <property name="dataSource" ref="druidDynamicDataSource" />
+        <!-- 配置mybatis文件 -->
+        <property name="configLocation" value="classpath:/mybatis-config.xml"/>
+        <!-- 扫描xml文件 -->
+        <property name="mapperLocations" value="classpath:com/sanxin/common/dao/mapper/*.xml"/>
+    </bean>
+
+    <!-- mapper扫描器 -->
+    <!-- spring与mybatis整合配置，扫描所有dao -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.sanxin.common.dao"/>
+        <property name="sqlSessionFactoryBeanName" value="SessionFactory"/>
+    </bean>
+
+    <!-- 事务控制器 -->
+    <bean id="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!-- 数据源 -->
+        <property name="dataSource" ref="druidDynamicDataSource"></property>
+    </bean>
+
+    <!-- 配置基本事务定义,使用transactionManager作事务管理,默认find*方法的事务为readonly -->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <!-- 指定哪些方法需要加入事务，可以使用通配符来只加入需要的方法 -->
+            <tx:method name="save*" propagation="REQUIRED"/>
+            <tx:method name="add*" propagation="REQUIRED"/>
+            <tx:method name="create*" propagation="REQUIRED"/>
+            <tx:method name="change*" propagation="REQUIRED"/>
+            <tx:method name="update*" propagation="REQUIRED"/>
+            <tx:method name="remove*" propagation="REQUIRED"/>
+            <tx:method name="delete*" propagation="REQUIRED"/>
+            <tx:method name="insert*" propagation="REQUIRED"/>
+            <tx:method name="handle*" propagation="REQUIRED"/>
+            <tx:method name="edit*" propagation="REQUIRED"/>
+            <tx:method name="find*" propagation="SUPPORTS"  read-only="true"/>
+            <tx:method name="select*" propagation="SUPPORTS"  read-only="true"/>
+            <tx:method name="query*" propagation="SUPPORTS"  read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!-- aop切点 -->
+    <!-- 第一个*表示返回值，第二个*表示所有类，第三个*表示所有方法，(..)表示方法的任何参数-->
+    <aop:config expose-proxy="true">
+        <aop:pointcut id="servicePointcut"
+                      expression="(execution(* com.sanxin.api.service..*.*(..)))" />
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="servicePointcut" />
+    </aop:config>
+
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+
+    <!-- spring缓存配置 -->
+    <!--
+        使用方法：
+        1.在缓存类添加@EnableCaching注解
+        2.在缓存方法上添加@Cacheable(value="myCache", key = "1")
+        注：aop需开启代理模式，实体类要序列化，myCache为ehcache.xml中的缓存名字，key可以设为动态参数#user.id
+    -->
+    <cache:annotation-driven cache-manager="cacheManager" />
+    <bean id="cacheManagerFactory" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+        <property name="configLocation" value="classpath:/ehcache.xml" />
+    </bean>
+    <bean id="cacheManager"  class="org.springframework.cache.ehcache.EhCacheCacheManager">
+        <property name="cacheManager" ref="cacheManagerFactory" />
+    </bean>
+
+    <!-- spring 线程池的配置 -->
+    <bean id ="taskExecutor"  class ="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor" >
+        <!-- 线程池维护线程的最少数量 -->
+        <property name ="corePoolSize" value ="5" />
+        <!-- 线程池维护线程所允许的空闲时间 -->
+        <property name ="keepAliveSeconds" value ="30000" />
+        <!-- 线程池维护线程的最大数量 -->
+        <property name ="maxPoolSize" value ="1000" />
+        <!-- 线程池所使用的缓冲队列 -->
+        <property name ="queueCapacity" value ="200" />
+    </bean>
+
+    <!-- 配置线程池 -->
+    <bean id ="dataImportTaskExecutor"  parent="taskExecutor" >
+        <!-- 线程池维护线程的最少数量 -->
+        <property name ="corePoolSize" value ="1" />
+        <!-- 线程池维护线程的最大数量 -->
+        <property name ="maxPoolSize" value ="1" />
+    </bean>
+</beans>
